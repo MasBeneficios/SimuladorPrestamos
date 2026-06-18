@@ -52,19 +52,19 @@
             <input type="text" inputmode="numeric" id="sueldoMensual" required>
         </div>
          <div class="form-group">
-            <label>Fecha de Ingreso <span class="tooltip">i<span class="tooltiptext">La fecha en la que comenzaste a trabajar en la empresa.</span></span></label>
-            <input type="date" id="fechaIngreso" required>
+            <label>Fecha de Antigüedad <span class="tooltip">i<span class="tooltiptext">La fecha en la que comenzaste a trabajar en la empresa.</span></span></label>
+            <input type="date" id="fechaAntiguedad" required>
         </div>
         <div class="form-group">
-            <label>Ahorro en Planflex ($) <span class="tooltip">i<span class="tooltiptext">El total de tu ahorro acumulado en Planflex.</span></span></label>
-            <input type="text" inputmode="numeric" id="ahorroPlanflex" value="0">
+            <label>Total Planfex ($) <span class="tooltip">i<span class="tooltiptext">Este dato lo encontrarás en tu estado de cuenta del planflex.</span></span></label>
+            <input type="text" inputmode="numeric" id="totalPlanflex" value="0">
         </div>
         <div class="form-group">
-            <label>Derechos no adquiridos ($) <span class="tooltip">i<span class="tooltiptext">La parte de tu ahorro en Planflex que aún no está disponible para este cálculo.</span></span></label>
+            <label>Derechos no adquiridos ($) <span class="tooltip">i<span class="tooltiptext">Saldo derechos no adquiridos mismos que encontrarás en tu estado de cuenta de planflex.</span></span></label>
             <input type="text" inputmode="numeric" id="derechosNoAdquiridos" value="0">
         </div>
          <div class="form-group">
-            <label>Desc. Mensuales Actuales ($) <span class="tooltip">i<span class="tooltiptext">La suma de todos los descuentos que ya se aplican a tu nómina cada mes (otros préstamos, etc.).</span></span></label>
+            <label>Descuentos Mensuales Actuales ($) <span class="tooltip">i<span class="tooltiptext">Suma tus descuentos del ultimo mes sin considerar ISR ni cuota IMSS (importante: si tienes un prestamo que vas a reestructurar, no consideres el monto del descuento).</span></span></label>
             <input type="text" inputmode="numeric" id="descuentosActuales" value="0" required>
         </div>
     </div>
@@ -126,18 +126,18 @@
     function calcularViabilidad() {
         const montoSolicitado = parseFormattedNumber(document.getElementById('montoSolicitado').value);
         const sueldoMensual = parseFormattedNumber(document.getElementById('sueldoMensual').value);
-        const fechaIngreso = document.getElementById('fechaIngreso').value;
+        const fechaAntiguedad = document.getElementById('fechaAntiguedad').value;
         const descuentosActuales = parseFormattedNumber(document.getElementById('descuentosActuales').value);
-        const ahorroPlanflex = parseFormattedNumber(document.getElementById('ahorroPlanflex').value);
+        const totalPlanflex = parseFormattedNumber(document.getElementById('totalPlanflex').value);
         const derechosNoAdquiridos = parseFormattedNumber(document.getElementById('derechosNoAdquiridos').value);
 
-        if (montoSolicitado <= 0 || sueldoMensual <= 0 || !fechaIngreso) {
-            alert("Por favor, completa todos los campos de monto, sueldo y fecha de ingreso.");
+        if (montoSolicitado <= 0 || sueldoMensual <= 0 || !fechaAntiguedad) {
+            alert("Por favor, completa todos los campos de monto, sueldo y fecha de antigüedad.");
             return;
         }
 
         const today = new Date();
-        const startDate = new Date(fechaIngreso);
+        const startDate = new Date(fechaAntiguedad);
         const antiguedad = (today.getTime() - startDate.getTime()) / (1000 * 3600 * 24 * 365.25);
         
         const tipoCredito = document.getElementById('tipoCredito').value;
@@ -154,9 +154,8 @@
         const tasaQuincenalPrestamo = TASA_ANUAL_PRESTAMO / 24;
 
         if (tipoCredito === 'credilazo') {
-            // --- Cálculo para Crediplazo con Seguro Dinámico (Goal Seek) ---
-            let pagoEstimado = PMT(tasaQuincenalPrestamo, plazoQuincenas, montoSolicitado); // Estimación inicial
-            for(let i = 0; i < 10; i++) { // Iterar 10 veces para alta precisión
+            let pagoEstimado = PMT(tasaQuincenalPrestamo, plazoQuincenas, montoSolicitado);
+            for(let i = 0; i < 10; i++) {
                 let saldo = montoSolicitado;
                 let costoTotalAcumulado = montoSolicitado;
                 for(let j = 0; j < plazoQuincenas; j++) {
@@ -169,19 +168,17 @@
             }
             pagoTotalQuincenal = pagoEstimado;
         } else {
-            // --- Cálculo para Crediflex (sin seguro) ---
             pagoTotalQuincenal = PMT(tasaQuincenalPrestamo, plazoQuincenas, montoSolicitado);
         }
         
         document.getElementById('pagoTotalQuincenal').innerText = moneyFormatter.format(pagoTotalQuincenal);
 
-        // --- VALIDACIONES ---
         const esViableAntiguedad = antiguedad >= antiguedadMinima;
         let msjAntiguedad = `Cumple: ${antiguedad.toFixed(2)} años (min. ${antiguedadMinima})`;
         if (!esViableAntiguedad) msjAntiguedad = `No cumple: ${antiguedad.toFixed(2)} años (min. ${antiguedadMinima})`;
 
         let montoMaximoPermitido = 0;
-        const ahorroNetoPlanflex = ahorroPlanflex - derechosNoAdquiridos;
+        const ahorroNetoPlanflex = totalPlanflex - derechosNoAdquiridos;
 
         if (esViableAntiguedad) {
             if (tipoCredito === 'crediflex') {
@@ -190,7 +187,7 @@
                 } else {
                     montoMaximoPermitido = sueldoMensual + ahorroNetoPlanflex;
                 }
-            } else { // Crediplazo
+            } else {
                 montoMaximoPermitido = sueldoMensual + ahorroNetoPlanflex;
             }
         }
@@ -207,14 +204,13 @@
         
         document.getElementById('resultados').style.display = 'block';
 
-        // Guardar resultados para el correo
         lastResults = {
-            tipoCredito: tipoCredito,
+            tipoCredito: tipoCredito.charAt(0).toUpperCase() + tipoCredito.slice(1),
             montoSolicitado: moneyFormatter.format(montoSolicitado),
             pagoTotalQuincenal: moneyFormatter.format(pagoTotalQuincenal),
-            antiguedad: esViableAntiguedad ? '✅ Cumple' : '❌ No Cumple',
-            monto: esViableMonto ? '✅ Cumple' : '❌ No Cumple',
-            capacidad: esViableCapacidad ? '✅ Cumple' : '❌ No Cumple'
+            antiguedad: document.getElementById('valAntiguedad').innerText.replace(/\s*✅|\s*❌/g, ''),
+            monto: document.getElementById('valMonto').innerText.replace(/\s*✅|\s*❌/g, ''),
+            capacidad: document.getElementById('valCapacidad').innerText.replace(/\s*✅|\s*❌/g, '')
         };
     }
 
@@ -225,10 +221,11 @@
     }
     
     function enviarCorreo(){
+        const destinatario = "mgudino@invex.com";
         const subject = encodeURIComponent(`Simulación de Préstamo - ${lastResults.tipoCredito}`);
-        const body = encodeURIComponent(`Hola,\n\nAdjunto el resultado de mi simulación de préstamo:\n\n- Tipo de Crédito: ${lastResults.tipoCredito}\n- Monto Solicitado: ${lastResults.montoSolicitado}\n- Descuento Quincenal Total: ${lastResults.pagoTotalQuincenal}\n\n--- Análisis de Viabilidad ---\n- Antigüedad: ${lastResults.antiguedad}\n- Límite de Monto: ${lastResults.monto}\n- Capacidad de Pago: ${lastResults.capacidad}\n\nSaludos.`);
+        const body = encodeURIComponent(`Hola,\n\nAdjunto el resultado de mi simulación de préstamo:\n\n- Tipo de Crédito: ${lastResults.tipoCredito}\n- Monto Solicitado: ${lastResults.montoSolicitado}\n- Descuento Quincenal Total: ${lastResults.pagoTotalQuincenal}\n\n--- Análisis de Viabilidad ---\n- ${lastResults.antiguedad}\n- ${lastResults.monto}\n- ${lastResults.capacidad}\n\nSaludos.`);
 
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        window.location.href = `mailto:${destinatario}?subject=${subject}&body=${body}`;
     }
 
     document.addEventListener('DOMContentLoaded', actualizarInfoCredito);
@@ -236,3 +233,4 @@
 
 </body>
 </html>
+

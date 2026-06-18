@@ -205,9 +205,17 @@
         document.getElementById('resultados').style.display = 'block';
 
         lastResults = {
+            // Datos del resultado
             tipoCredito: tipoCredito.charAt(0).toUpperCase() + tipoCredito.slice(1),
-            montoSolicitado: moneyFormatter.format(montoSolicitado),
             pagoTotalQuincenal: moneyFormatter.format(pagoTotalQuincenal),
+            // Datos ingresados por el usuario
+            montoSolicitado: moneyFormatter.format(montoSolicitado),
+            sueldoMensual: moneyFormatter.format(sueldoMensual),
+            fechaAntiguedad: new Date(fechaAntiguedad).toLocaleDateString('es-ES'),
+            totalPlanflex: moneyFormatter.format(totalPlanflex),
+            derechosNoAdquiridos: moneyFormatter.format(derechosNoAdquiridos),
+            descuentosActuales: moneyFormatter.format(descuentosActuales),
+            // Datos de viabilidad
             antiguedad: document.getElementById('valAntiguedad').innerText.replace(/\s*✅|\s*❌/g, ''),
             monto: document.getElementById('valMonto').innerText.replace(/\s*✅|\s*❌/g, ''),
             capacidad: document.getElementById('valCapacidad').innerText.replace(/\s*✅|\s*❌/g, '')
@@ -223,7 +231,29 @@
     function enviarCorreo(){
         const destinatario = "mgudino@invex.com";
         const subject = encodeURIComponent(`Simulación de Préstamo - ${lastResults.tipoCredito}`);
-        const body = encodeURIComponent(`Hola,\n\nAdjunto el resultado de mi simulación de préstamo:\n\n- Tipo de Crédito: ${lastResults.tipoCredito}\n- Monto Solicitado: ${lastResults.montoSolicitado}\n- Descuento Quincenal Total: ${lastResults.pagoTotalQuincenal}\n\n--- Análisis de Viabilidad ---\n- ${lastResults.antiguedad}\n- ${lastResults.monto}\n- ${lastResults.capacidad}\n\nSaludos.`);
+        const body = encodeURIComponent(
+`Hola,
+
+Adjunto el resultado de mi simulación de préstamo:
+
+--- RESULTADOS ---
+- Tipo de Crédito: ${lastResults.tipoCredito}
+- Descuento Quincenal Total: ${lastResults.pagoTotalQuincenal}
+
+--- DATOS INGRESADOS ---
+- Monto Solicitado: ${lastResults.montoSolicitado}
+- Sueldo Mensual: ${lastResults.sueldoMensual}
+- Fecha de Antigüedad: ${lastResults.fechaAntiguedad}
+- Total Planflex: ${lastResults.totalPlanflex}
+- Derechos no adquiridos: ${lastResults.derechosNoAdquiridos}
+- Descuentos Actuales: ${lastResults.descuentosActuales}
+
+--- ANÁLISIS DE VIABILIDAD ---
+- ${lastResults.antiguedad}
+- ${lastResults.monto}
+- ${lastResults.capacidad}
+
+Saludos.`);
 
         window.location.href = `mailto:${destinatario}?subject=${subject}&body=${body}`;
     }

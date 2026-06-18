@@ -10,17 +10,20 @@
         h1 { color: #1c3d5a; text-align: center; font-size: 26px; margin-bottom: 10px; }
         p.subtitle { text-align: center; color: #666; margin-top: 0; margin-bottom: 30px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .form-group { margin-bottom: 15px; }
+        .form-group { margin-bottom: 15px; position: relative; }
         label { display: block; margin-bottom: 6px; font-weight: 600; color: #333; font-size: 14px; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        input:focus, select:focus { border-color: #0056b3; outline: none; }
         button { width: 100%; padding: 15px; background-color: #0056b3; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: background-color 0.3s; }
-        button:hover { background-color: #004494; }
+        #emailButton { background-color: #6c757d; }
+        button:hover { opacity: 0.9; }
         .results-card { margin-top: 30px; padding: 25px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; display: none; }
         .main-result { font-size: 24px; color: #0056b3; text-align: center; font-weight: bold; margin-bottom: 25px; }
         .validation-item { padding: 12px 15px; margin-bottom: 12px; border-radius: 6px; font-weight: bold; display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
-        .valid { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .invalid { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .valid { background-color: #d4edda; color: #155724; }
+        .invalid { background-color: #f8d7da; color: #721c24; }
+        .tooltip { position: relative; display: inline-block; cursor: pointer; margin-left: 5px; font-weight: normal; color: #0056b3; border: 1px solid #0056b3; border-radius: 50%; width: 18px; height: 18px; text-align: center; line-height: 16px; font-style: italic; font-size: 12px; }
+        .tooltip .tooltiptext { visibility: hidden; width: 220px; background-color: #555; color: #fff; text-align: center; border-radius: 6px; padding: 5px 10px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -110px; opacity: 0; transition: opacity 0.3s; font-size: 12px; font-weight: normal; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body>
@@ -41,27 +44,27 @@
 
     <div class="grid-2">
         <div class="form-group">
-            <label>Monto a Solicitar ($)</label>
-            <input type="text" inputmode="numeric" id="montoSolicitado" placeholder="Ej: 40,000" required>
+            <label>Monto a Solicitar ($) <span class="tooltip">i<span class="tooltiptext">Ingresa el monto de dinero que deseas solicitar.</span></span></label>
+            <input type="text" inputmode="numeric" id="montoSolicitado" required>
         </div>
         <div class="form-group">
-            <label>Sueldo Mensual ($)</label>
-            <input type="text" inputmode="numeric" id="sueldoMensual" placeholder="Ej: 75,000" required>
+            <label>Sueldo Mensual ($) <span class="tooltip">i<span class="tooltiptext">Tu sueldo mensual bruto, antes de impuestos y deducciones.</span></span></label>
+            <input type="text" inputmode="numeric" id="sueldoMensual" required>
         </div>
          <div class="form-group">
-            <label>Fecha de Ingreso</label>
+            <label>Fecha de Ingreso <span class="tooltip">i<span class="tooltiptext">La fecha en la que comenzaste a trabajar en la empresa.</span></span></label>
             <input type="date" id="fechaIngreso" required>
         </div>
         <div class="form-group">
-            <label>Ahorro en Planflex ($)</label>
+            <label>Ahorro en Planflex ($) <span class="tooltip">i<span class="tooltiptext">El total de tu ahorro acumulado en Planflex.</span></span></label>
             <input type="text" inputmode="numeric" id="ahorroPlanflex" value="0">
         </div>
         <div class="form-group">
-            <label>Derechos no adquiridos ($)</label>
+            <label>Derechos no adquiridos ($) <span class="tooltip">i<span class="tooltiptext">La parte de tu ahorro en Planflex que aún no está disponible para este cálculo.</span></span></label>
             <input type="text" inputmode="numeric" id="derechosNoAdquiridos" value="0">
         </div>
          <div class="form-group">
-            <label>Desc. Mensuales Actuales ($)</label>
+            <label>Desc. Mensuales Actuales ($) <span class="tooltip">i<span class="tooltiptext">La suma de todos los descuentos que ya se aplican a tu nómina cada mes (otros préstamos, etc.).</span></span></label>
             <input type="text" inputmode="numeric" id="descuentosActuales" value="0" required>
         </div>
     </div>
@@ -77,14 +80,17 @@
         <div id="valAntiguedad" class="validation-item"></div>
         <div id="valMonto" class="validation-item"></div>
         <div id="valCapacidad" class="validation-item"></div>
+        
+        <button id="emailButton" onclick="enviarCorreo()">Enviar Resultados por Correo</button>
     </div>
 </div>
 
 <script>
     const TASA_ANUAL_PRESTAMO = 0.083;
-    const FACTOR_SEGURO = 0.24; // Factor de 0.24, se divide entre 1000 en la fórmula
+    const FACTOR_SEGURO = 0.24;
     const LIMITE_CAPACIDAD_PAGO = 0.30;
     const moneyFormatter = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+    let lastResults = {};
 
     function parseFormattedNumber(value) {
         return parseFloat(String(value).replace(/[^0-9.-]+/g,"")) || 0;
@@ -150,16 +156,16 @@
         if (tipoCredito === 'credilazo') {
             // --- Cálculo para Crediplazo con Seguro Dinámico (Goal Seek) ---
             let pagoEstimado = PMT(tasaQuincenalPrestamo, plazoQuincenas, montoSolicitado); // Estimación inicial
-            for(let i = 0; i < 10; i++) { // Iterar para mayor precisión
+            for(let i = 0; i < 10; i++) { // Iterar 10 veces para alta precisión
                 let saldo = montoSolicitado;
-                let costoTotal = montoSolicitado;
+                let costoTotalAcumulado = montoSolicitado;
                 for(let j = 0; j < plazoQuincenas; j++) {
                     let interesPeriodo = saldo * tasaQuincenalPrestamo;
                     let seguroPeriodo = saldo * (FACTOR_SEGURO / 1000);
-                    costoTotal += interesPeriodo + seguroPeriodo;
+                    costoTotalAcumulado += interesPeriodo + seguroPeriodo;
                     saldo -= (pagoEstimado - interesPeriodo - seguroPeriodo);
                 }
-                pagoEstimado = costoTotal / plazoQuincenas;
+                pagoEstimado = costoTotalAcumulado / plazoQuincenas;
             }
             pagoTotalQuincenal = pagoEstimado;
         } else {
@@ -200,6 +206,16 @@
         mostrarResultado('valCapacidad', esViableCapacidad, `Capacidad de pago (Disponible: ${moneyFormatter.format(limiteDescuentoMensual - descuentosActuales)})`);
         
         document.getElementById('resultados').style.display = 'block';
+
+        // Guardar resultados para el correo
+        lastResults = {
+            tipoCredito: tipoCredito,
+            montoSolicitado: moneyFormatter.format(montoSolicitado),
+            pagoTotalQuincenal: moneyFormatter.format(pagoTotalQuincenal),
+            antiguedad: esViableAntiguedad ? '✅ Cumple' : '❌ No Cumple',
+            monto: esViableMonto ? '✅ Cumple' : '❌ No Cumple',
+            capacidad: esViableCapacidad ? '✅ Cumple' : '❌ No Cumple'
+        };
     }
 
     function mostrarResultado(elementId, esValido, mensaje) {
@@ -207,10 +223,16 @@
         uiElement.className = esValido ? 'validation-item valid' : 'validation-item invalid';
         uiElement.innerHTML = `<span>${mensaje}</span> <span>${esValido ? '✅' : '❌'}</span>`;
     }
+    
+    function enviarCorreo(){
+        const subject = encodeURIComponent(`Simulación de Préstamo - ${lastResults.tipoCredito}`);
+        const body = encodeURIComponent(`Hola,\n\nAdjunto el resultado de mi simulación de préstamo:\n\n- Tipo de Crédito: ${lastResults.tipoCredito}\n- Monto Solicitado: ${lastResults.montoSolicitado}\n- Descuento Quincenal Total: ${lastResults.pagoTotalQuincenal}\n\n--- Análisis de Viabilidad ---\n- Antigüedad: ${lastResults.antiguedad}\n- Límite de Monto: ${lastResults.monto}\n- Capacidad de Pago: ${lastResults.capacidad}\n\nSaludos.`);
+
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
 
     document.addEventListener('DOMContentLoaded', actualizarInfoCredito);
 </script>
 
 </body>
 </html>
-
